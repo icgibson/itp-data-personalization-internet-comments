@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>The Volunteers</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Titillium+Web:200,600" rel="stylesheet">
+    
+    <style type="text/css">
+      body {
+        background-color: #000000;
+        font-family: 'Titillium Web';
+      }
+      .casPhoto {
+        height: 200px;
+        filter: grayscale(100%);
+        opacity: 0.4;
+        z-index: 1;
+        padding: 5px;
+      }
+      #imgContain {
+        position:fixed;
+        display: block;
+        top:5%;
+        left:3%;
+        width:94%;
+        height:90%;
+        text-align: justify;
+      }
+      #quoteContain {
+        position:fixed;
+        top:81%;
+        left: 5%;
+        width:90%;
+        height:18%;
+        z-index: 1;
+        text-align: center;
+        font-family: 'Titillium Web', sans-serif;
+        font-size: 20pt;
+        color: #0DFF00;
+        vertical-align: center;
+      }
+      .casContain {
+        height: 210px;
+        width: auto;
+        display: inline;
+        z-index: 1;
+        clear: both;
+      }
+      .modal {
+          display: none; /* Hidden by default */
+          position: fixed; /* Stay in place */
+          z-index: 1; /* Sit on top */
+          padding-top: 60px; /* Location of the box */
+          left: 0;
+          top: 0;
+          width: 100%; /* Full width */
+          height: 100%; /* Full height */
+          background-color: rgb(0,0,0); /* Fallback color */
+          background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+      }
+
+      /* Modal Content */
+      .modal-content {
+          background-color: #fefefe;
+          margin: auto;
+          border: 1px solid #888;
+          width:80%;
+          padding: 0px;
+          overflow:auto;
+      }
+
+      /* The Close Button */
+      .close {
+          color: #aaaaaa;
+          float: right;
+          padding: 20px;
+          font-size: 28px;
+          font-weight: bold;
+      }
+
+      .close:hover,
+      .close:focus {
+          color: #000;
+          text-decoration: none;
+          cursor: pointer;
+      }
+      #modalName {
+        font-size: 20pt;
+        background-color: #999;
+        padding: 2px 16px;
+        height: 75px;
+        line-height: 75px;
+      }
+      #modalPhoto {
+        float: left;
+        margin-right: 15px;
+        margin-bottom: 5px;
+      }
+      #modalBio {
+        font-size: 12pt;
+        text-align: justify;
+        padding: 15px;
+      }
+      #bioButton {
+        background-color: #999;
+        font-size: 12pt;
+        border: none;
+        width: 40%;
+        margin-top: 20px;
+        height: 40px;
+      }
+      #modalSummary {
+        font-size: 12pt;
+        padding: 15px;
+      }
+
+    </style>
+
+  </head>
+
+  <body>
+    <div id='imgContain'></div>
+    <div id='quoteContain'></div>
+    <div id="myModal" class="modal">
+
+  
+    <div class="modal-content" id='modalContent'>
+      <span class="close">×</span>
+      <div id="modalName"></div>
+      <div id="modalPhoto"></div>
+      <div id="modalSummary"></div>
+      <button id="bioButton">Expand Bio</button>
+      <div id="modalBio"></div>
+    </div>
+    </div>
+  
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.4/p5.js' type='text/javascript'></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.19.0/TweenMax.min.js"></script>
+
+  </body>
+
+  <script type="text/javascript">
+  	
+    var fColorMatch = '#FFFFFF';
+    var wMatch = 0.5;
+    var rMatch = 4;
+    var fColorNoMatch = 'rgba(13,255,0,0.4)';
+    var wNoMatch = 0.2;
+    var rNoMatch = 2;
+
+    var processed = 0;
+    var allImages = [];
+    var allNames =[];
+    var img;
+    var casualties;
+    var prevID = '';
+    var curID = '';
+    var quotes = [];
+    var mapTL;
+    var imgTL;
+    var newImages = []
+    var recClicked = false;
+    var bioClicked = false;
+
+    var imgFade;
+    var modal = document.getElementById('myModal');
+    var span = document.getElementsByClassName("close")[0];
+
+    // simple script to pull data from our database and display on page
+		$.getJSON('/api/get', function(data) {
+				casualties = data.casualties;
+				casualties.forEach(function(e){
+					var htmlToAppend = 
+					'<div class="casContain"> <img id="' +e.name +'" class="casPhoto" src="'+e.photo+'" /></div>';
+					document.getElementById('imgContain').innerHTML += htmlToAppend; 
+          processed++
+          if(processed >= casualties.length) {
+            addClickListen();
+            tracePath('none');
+            for(var i = 0; i < casualties.length; i++) {
+              for(var j = 0; j < casualties[i].quotes.length; j++) {
+                quotes.push(casualties[i].quotes[j]);
+              }
+            }
+          }
+				})
+        var randomQuote = Math.floor(Math.random() * quotes.length)
+        //document.getElementById('quoteContain').innerHTML = "' " +quotes[randomQuote] +" '";
+		});  	
+
+    var mapCan;
+
+    function setup() {
+      mapCan = createCanvas(windowWidth * 0.9,windowWidth * 0.24);
+      document.getElementById('defaultCanvas0').style.zIndex = '-1';
+      mapCan.background(0,0,0);
+      document.getElementById('defaultCanvas0').style.position = 'fixed';
+      document.getElementById('defaultCanvas0').style.top = windowHeight*0.2 +'px';
+      document.getElementById('defaultCanvas0').style.left = windowWidth*0.05 +'px';
+      setTimeout(function() {
+        setInterval(function() {
+          var randomQuote = Math.floor(Math.random() * quotes.length)
+          //document.getElementById('quoteContain').innerHTML = quotes[randomQuote];
+        },20000);
+      },1000);
+
+      mapTL = new TimelineLite();
+      imgTL = new TimelineLite();
+
+      span.onclick = function() {
+        imgTL.clear();
+        modal.style.display = "none";
+        recClicked = false;
+        for(var i = 0; i < newImages.length; i++) {
+          //newImages[i].style.opacity = '0.4';
+          //newImages[i].style.filter = 'grayscale(100%)';
+          imgTL.to(newImages[i],0.2,{opacity:1});
+        }
+        imgTL.play();
+      }
+
+      window.onclick = function(event) {
+        if (event.target == modal) {
+        modal.style.display = "none";
+        recClicked = false;
+        for(var i = 0; i < newImages.length; i++) {
+          imgTL.to(newImages[i],0.2,{opacity:1});
+        }
+        imgTL.play();
+    }
+      document.getElementById('bioButton').onclick = function() {
+        if(! bioClicked) {
+          document.getElementById('modalBio').innerHTML = curBio;
+          document.getElementById('bioButton').innerHTML = 'Collapse Bio';
+          bioClicked = true;
+        } else {
+          document.getElementById('modalBio').innerHTML = '';
+          document.getElementById('bioButton').innerHTML = 'Expand Bio';
+          bioClicked = false;
+        }
+      }
+}
+
+    }
+
+    function draw() {
+      if(prevID != curID) {
+          clear();
+          tracePath(curID)
+      }
+      prevID = curID;
+    }
+
+    function tracePath(id) {
+     
+      casualties.forEach(function(e){
+        if(e.name === id) {
+          mapCoords(e,fColorMatch,wMatch,rMatch);
+        } else {
+          mapCoords(e,fColorNoMatch,wNoMatch,rNoMatch);
+        }
+      });
+    }
+
+    var cHX;
+    var cHY;
+    var cPX;
+    var cPY;
+    var cSX;
+    var cSY;
+
+    function mapCoords(record,color,weight,radius) {
+          
+      cHX = float(map(record.homeGeometry.homeLon, -170.7, 158.3, 30, mapCan.width - 30));
+      cHY = float(map(record.homeGeometry.homeLat, -14.3, 64.8, mapCan.height+50, 50));
+      
+      cPX = float(map(record.deathCoordinates.homeLon, -170.7, 158.3, 30, mapCan.width - 30));
+      cPY = float(map(record.deathCoordinates.homeLat, -14.3, 64.8, mapCan.height+50, 50));
+
+      //if stationed data exists, map it then draw all. Otherwise, skip that and draw the data available.
+      if(record.StationedCity === '') {
+        drawCoords([cHX,cHY,cPX,cPY]);
+      } else {
+        cSX = float(map(record.stationedGeometry.stationedLon, -170.7, 158.3, 30, mapCan.width - 30));
+        cSY = float(map(record.stationedGeometry.stationedLat, -14.3, 64.8, mapCan.height+50, 50));
+        drawCoords([cHX,cHY,cSX,cSY,cPX,cPY],color,weight,radius);
+      } 
+    }
+
+    function drawCoords(coords,color,weight,radius) {
+      if(coords.length === 6) {
+        fill(color);
+        noStroke();
+        ellipse(coords[0], coords[1], radius, radius);
+        ellipse(coords[2], coords[3], radius, radius);
+        ellipse(coords[4], coords[5], radius, radius);
+        strokeWeight(weight);
+        stroke(color);
+        line(coords[0], coords[1], coords[2], coords[3]);
+        line(coords[2], coords[3], coords[4], coords[5]);
+      }
+    }
+
+    function addClickListen() {
+     allImages = document.getElementsByClassName('casPhoto');
+     for(var i=0;i<allImages.length;i++){
+         allNames.push(allImages[i].id);
+         allImages[i].addEventListener("mouseenter", bindMouseOver(allImages[i].id));
+         allImages[i].addEventListener("mouseleave", bindMouseOut(allImages[i].id));
+         allImages[i].addEventListener("click", bindClick(allImages[i].id));
+      }
+    }
+
+    function bindMouseOver(id) {
+      return function(){
+        if(! recClicked) {
+          var curTween = document.getElementById(id);
+          TweenLite.to(curTween,0.4,{filter: 'grayscale(0%)',opacity:1});
+          for(var i = 0; i < casualties.length; i++) {
+            if(id === casualties[i].name) {
+              curID = casualties[i].name;
+            }
+          }
+        }
+      }
+    }
+
+    function bindMouseOut(id) {
+      return function() {
+        if(! recClicked) {
+          curID = '';
+          var curTween = document.getElementById(id);
+          TweenLite.to(curTween,0.4,{filter: 'grayscale(100%)',opacity:0.4});
+        }
+      }
+    }
+
+    var numFade = 0;
+
+    function bindClick(id) {
+      
+      return function() {
+        recClicked = true;
+        newImages = [];
+        imgTL.clear();
+        thisID = document.getElementById(id);
+        var shuffledNames = shuffleArray(allNames);
+        for(var j = 0; j < shuffledNames.length; j++) {
+          newImages.push(document.getElementById(shuffledNames[j]));
+        }
+        for(var i = 0; i < newImages.length; i++) {
+          if(thisID === newImages[i]) {
+            index = i;
+            TweenLite.to(newImages[i],0.4,{filter: 'grayscale(0%)',opacity:1,onComplete:function() {
+            }});
+          } else {
+            imgTL.to(newImages[i],0.15,{opacity:0,display:'hidden'});
+          }
+        }
+        var timeToFade = newImages.length * 0.08 + 0.8;
+        imgTL.to(newImages[index],1,{opacity:0,onComplete:function() {
+          for(k = 0; k < casualties.length; k++) {
+            if(casualties[k].name === newImages[index].id) {
+              document.getElementById('modalName').innerHTML = casualties[k].rank +' ' +casualties[k].name;
+              document.getElementById('modalPhoto').innerHTML = '<img src="' +casualties[k].photo +'" height=400px>';
+              var d = new Date(casualties[k].dateOfDeath);
+              document.getElementById('modalSummary').innerHTML = 'From <strong>' +casualties[k].homeCity +', ' +casualties[k].homeState +'</strong>.<br>Member of the <strong>' +casualties[k].branch +'</strong>.<br>Stationed with <strong>' +casualties[k].unit +'</strong> in <strong>' +casualties[k].stationedCity +', ' +casualties[k].stationedState +'</strong>.<br>Died on <strong>' +d.toDateString() +'</strong> at <strong>' +casualties[k].age +'</strong> years old.<br>';
+              document.getElementById('modalContent').style.height = '475px';
+              document.getElementById('bioButton').style.width = 100% - document.getElementById('modalPhoto').style.width - 20 +'px';
+              modal.style.display = "block";
+              curBio = casualties[k].bio.replace(/(\r\n\r\n)/g, '<br><br>')
+            }
+          }
+        }});
+        imgTL.play();
+        numFade = 0;
+
+        // for(var i = 0; i < allNames.length-1; i++) {
+        //   console.log('fading ' +allNames[i]);
+        //   imgTL.to(allImages[i],0.2,{opacity:0});
+        // }
+        
+      }
+    }
+
+    function shuffleArray(array) {
+      var currentIndex = array.length, temporaryValue, randomIndex;
+      console.log(array);
+      // While there remain elements to shuffle...
+      while (0 !== currentIndex) {
+
+        // Pick a remaining element...
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+
+        // And swap it with the current element.
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+      }
+      console.log(array);
+
+      return array;
+    }
+
+  </script>
+</html>

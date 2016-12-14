@@ -1,20 +1,23 @@
 var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
+var geocoder = require('geocoder');
 
 // our db model
-var Animal = require("../models/model.js");
+var Casualty = require("../models/model.js");
+
+var geocodeKey = process.env.GOOGLE_GEOCODER_KEY;
 
 // simple route to render am HTML form that can POST data to our server
 // NOTE that this is not a standard API route, and is really for testing
-router.get('/create-pet', function(req,res){
+router.get('/create-casualty', function(req,res){
   res.render('pet-form.html')
 })
 
 // simple route to render an HTML page that pulls data from our server and displays it on a page
 // NOTE that this is not a standard API route, and is really for testing
-router.get('/show-pets', function(req,res){
-  res.render('show-pets.html')
+router.get('/the-volunteers', function(req,res){
+  res.render('show-casualties.html')
 })
 
 /**
@@ -48,35 +51,100 @@ router.get('/sample-page', function(req,res){
 
 router.post('/api/create', function(req, res){
 
-    console.log(req.body);
+    //console.log(req.body);
 
     // pull out the information from the req.body
     var name = req.body.name;
+    var rank = req.body.rank;
+    var branch = req.body.branch; // split string into array
     var age = req.body.age;
-    var tags = req.body.tags.split(","); // split string into array
-    var weight = req.body.weight;
-    var color = req.body.color;
-    var url = req.body.url;
+    var homeCity = req.body.homeCity;
+    var homeState = req.body.homeState;
+    var homeString = String(homeCity +', ' +homeState);
+
+    geocoder.geocode(homeString, function ( err, data ) {
+      homeGeometry = [
+        data.results[0].geometry.location.lng,
+        data.results[0].geometry.location.lat
+      ]
+    }, geocodeKey);
+
+    var unit = req.body.unit;
+    var stationedCity = req.body.stationedCity;
+    var stationedState = req.body.stationedState;
+    var stationedString = String(stationedCity +', ' +stationedState);
+
+    geocoder.geocode(stationedString, function ( err, data ) {
+      stationedGeometry = [
+        data.results[0].geometry.location.lng,
+        data.results[0].geometry.location.lat
+      ]
+    }, geocodeKey);
+
+    var causeOfDeath = req.body.causeofDeath;
+    var dateOfDeath = req.body.dateOfDeath;
+    var cityOfDeath = req.body.cityOfDeath;
+    var countryOfDeath = req.body.countryOfDeath;
+    var deathString = String(cityOfDeath +', ' +countryOfDeath);
+
+    geocoder.geocode(deathString, function ( err, data ) {
+      deathGeometry = [
+        data.results[0].geometry.location.lng,
+        data.results[0].geometry.location.lat
+      ]
+    }, geocodeKey);
+
+    var awards = req.body.awards.split('~');
+    var family = req.body.family;
+    var bio = req.body.bio;
+    var quotes = req.body.quotes.split('~');
+    var conflict = req.body.conflict;
+    var photo = req.body.photo;
+
+    var casualtyObj = {};
 
     // hold all this data in an object
     // this object should be structured the same way as your db model
-    var animalObj = {
-      name: name,
-      age: age,
-      tags: tags,
-      description: {
-        weight: weight,
-        color: color
-      },
-      url: url
-    };
+    setTimeout(function() {
+      casualtyObj = {
+        name: name,
+        rank: rank,
+        branch: branch,
+        age: age,
+        homeState: homeState,
+        homeCity: homeCity,
+        homeGeometry: {
+          homeLon: homeGeometry[0],
+          homeLat: homeGeometry[1]
+        },
+        unit: unit,
+        stationedState: stationedState,
+        stationedCity: stationedCity,
+        stationedGeometry: {
+          stationedLon: stationedGeometry[0],
+          stationedLat: stationedGeometry[1]
+        },
+        dateOfDeath: dateOfDeath,
+        causeOfDeath: causeOfDeath,
+        cityOfDeath: cityOfDeath,
+        countryOfDeath: countryOfDeath,
+        deathCoordinates: {
+          homeLon: deathGeometry[0],
+          homeLat: deathGeometry[1]
+        },
+        awards: awards,
+        family: family,
+        bio: bio,
+        quotes: quotes,
+        photo: photo,
+        conflict: conflict
+      };
 
-    // create a new animal model instance, passing in the object
-    var animal = new Animal(animalObj);
+      var casualty = new Casualty(casualtyObj);
 
-    // now, save that animal instance to the database
-    // mongoose method, see http://mongoosejs.com/docs/api.html#model_Model-save    
-    animal.save(function(err,data){
+      console.log(casualty);
+
+      casualty.save(function(err,data){
       // if err saving, respond back with error
       if (err){
         var error = {status:'ERROR', message: 'Error saving animal'};
@@ -94,7 +162,16 @@ router.post('/api/create', function(req, res){
 
       return res.json(jsonData);
 
-    })  
+    }) 
+
+
+    },1000);
+
+    // create a new animal model instance, passing in the object
+    
+
+    // now, save that animal instance to the database
+    // mongoose method, see http://mongoosejs.com/docs/api.html#model_Model-save     
 });
 
 // /**
@@ -137,10 +214,10 @@ router.get('/api/get/:id', function(req, res){
 router.get('/api/get', function(req, res){
 
   // mongoose method to find all, see http://mongoosejs.com/docs/api.html#model_Model.find
-  Animal.find(function(err, data){
-    // if err or no animals found, respond with error 
+  Casualty.find(function(err, data){
+    // if err or no casualties found, respond with error 
     if(err || data == null){
-      var error = {status:'ERROR', message: 'Could not find animals'};
+      var error = {status:'ERROR', message: 'Could not find casualties'};
       return res.json(error);
     }
 
@@ -148,7 +225,7 @@ router.get('/api/get', function(req, res){
 
     var jsonData = {
       status: 'OK',
-      animals: data
+      casualties: data
     } 
 
     res.json(jsonData);
